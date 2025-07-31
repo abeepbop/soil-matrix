@@ -43,12 +43,13 @@ class Material:
 class Substrate:
     def __init__(self, w, h, width, height, sources):
         self.vivos = []
+        self.unit = 0.01 #unit of grid square is 1 cm
         self.num_squares = w * h
         self.grid = np.zeros(shape=(w,h))
         self.temps = np.zeros(shape=(w,h))
         
         #there are a number of sources that will always have a certain strength.
-        self.light_strength = 100
+        self.light_strength = 1000 * self.unit * self.unit #average WATTS PER METER SQUARED by the depth of the squares, by the length of each square. so each square gets 0.1 W/M^2
         self.sources = sources
         for source in sources:
             self.grid[source[0]][source[1]] = self.light_strength
@@ -99,7 +100,7 @@ class Substrate:
                     col = temp_color(val)
                     pygame.draw.rect(surface,col,self.rect_grid[j][k])
                 else:
-                    val = self.grid[j][k] * 2.5 # 0-100 => 0-255
+                    val = self.grid[j][k]/10 * 2.5 # 0-1000 => 0-255
                     minnum = 50
                     val = min(255,val)
                     val = max(minnum,val)
@@ -205,9 +206,15 @@ class Substrate:
         for j in range(self.grid_height):
             for k in range(self.grid_width):
                 if self.objgrid[j][k].type == 'water':
-                    if self.grid[j][k] >= 10: #AND LIGHT IS ABSORBED AS HEAT
-                        self.grid[j][k] -= 10
-                        self.temps[j][k] += 1
+                    if self.grid[j][k] >= 0: #AND LIGHT IS ABSORBED AS HEAT
+                        watts = self.grid[j][k]
+                        self.grid[j][k] *= 0.025 #the albedo of water is 0.025 from directly above
+                        watts_absorbed = watts - self.grid[j][k] #the energy that was absorbed from the sun in that area. 
+                        #calorimetry: Joules / (mass * specific heat)
+                        mass = 1000 * (self.unit**3) #kilograms water
+                        Joules = watts_absorbed / dt
+                        self.temps[j][k] += Joules / (mass * 4186) # Joules / (mass * 4186J/kg*C)
+                        
         
         #light travels down.
         self.diffuse(dt)
